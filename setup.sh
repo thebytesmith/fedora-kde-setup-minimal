@@ -110,7 +110,7 @@ preflight_checks() {
 }
 
 # ---------------------------------------------------------------------------
-# 1. DNF Configuration & System Update
+# DNF Configuration & System Update
 # ---------------------------------------------------------------------------
 configure_dnf() {
     section "DNF Configuration & System Update"
@@ -128,7 +128,59 @@ configure_dnf() {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Package Installation
+# RPM Fusion
+# ---------------------------------------------------------------------------
+setup_rpmfusion() {
+    section "RPM Fusion"
+
+    local fedora_version
+    fedora_version="$(rpm -E %fedora)"
+
+    if ! rpm -q rpmfusion-free-release &>/dev/null; then
+        SETUP_EST_SECS=20 run_bg "RPM Fusion Free" \
+            sudo dnf install -y \
+            "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_version}.noarch.rpm"
+        ok "RPM Fusion Free enabled"
+    else
+        warn "RPM Fusion Free is already installed — skipping"
+    fi
+
+    if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
+        SETUP_EST_SECS=20 run_bg "RPM Fusion Nonfree" \
+            sudo dnf install -y \
+            "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_version}.noarch.rpm"
+        ok "RPM Fusion Nonfree enabled"
+    else
+        warn "RPM Fusion Nonfree is already installed — skipping"
+    fi
+
+    SETUP_EST_SECS=15 run_bg "Refresh DNF metadata" \
+        sudo dnf makecache
+
+    ok "RPM Fusion configured"
+}
+
+# ---------------------------------------------------------------------------
+# Multimedia Codecs
+# ---------------------------------------------------------------------------
+configure_codecs() {
+    section "Multimedia Codecs"
+
+
+    SETUP_EST_SECS=30 run_bg "Replace FFmpeg" \
+        sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+
+    SETUP_EST_SECS=30 run_bg "Install multimedia codecs" \
+        sudo dnf group install -y multimedia
+
+    SETUP_EST_SECS=20 run_bg "Install additional codecs" \
+        sudo dnf group install -y sound-and-video
+
+    ok "Multimedia codecs configured"
+}
+
+# ---------------------------------------------------------------------------
+# Package Installation
 # ---------------------------------------------------------------------------
 install_packages() {
     section "Package Installation"
@@ -172,7 +224,7 @@ install_packages() {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Systemd Services
+# Systemd Services
 # ---------------------------------------------------------------------------
 configure_systemd() {
     section "Systemd Services"
@@ -184,7 +236,7 @@ configure_systemd() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. VSCodium
+# VSCodium
 # ---------------------------------------------------------------------------
 install_vscodium() {
     section "VSCodium"
@@ -211,7 +263,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 5. Brave Browser
+# Brave Browser
 # ---------------------------------------------------------------------------
 install_brave() {
     section "Brave Browser"
@@ -225,7 +277,7 @@ install_brave() {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Flatpak & Flathub Apps
+# Flatpak & Flathub Apps
 # ---------------------------------------------------------------------------
 install_flatpak_apps() {
     section "Flatpak & Flathub"
@@ -247,7 +299,7 @@ install_flatpak_apps() {
 }
 
 # ---------------------------------------------------------------------------
-# 7. Fingerprint Sensor
+# Fingerprint Sensor
 # ---------------------------------------------------------------------------
 install_fingerprint() {
     section "Fingerprint Sensor"
@@ -263,7 +315,7 @@ install_fingerprint() {
 }
 
 # ---------------------------------------------------------------------------
-# 8. SDDM
+# SDDM
 # ---------------------------------------------------------------------------
 configure_sddm() {
     section "SDDM"
@@ -295,7 +347,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 9. Cleanup
+# Cleanup
 # ---------------------------------------------------------------------------
 cleanup() {
     section "Cleanup"
@@ -334,13 +386,14 @@ main() {
     preflight_checks
 
     configure_dnf
+    setup_rpmfusion
+    configure_codecs
     install_packages
     configure_systemd
     install_vscodium
     install_brave
     install_flatpak_apps
     install_fingerprint
-    configure_grub
     configure_sddm
     cleanup
 
